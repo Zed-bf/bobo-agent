@@ -66,6 +66,13 @@
             <version>1.0.0-beta3</version>
         </dependency>
 
+        <!-- reactor -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-reactor</artifactId>
+            <version>1.0.0-beta3</version>
+        </dependency>
+
         <!-- mysql -->
         <!-- 1. MySQL JDBC 驱动 -->
         <dependency>
