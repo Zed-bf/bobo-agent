@@ -8,6 +8,7 @@ import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class MysqlChatMemoryStore implements ChatMemoryStore {
@@ -30,7 +31,9 @@ public class MysqlChatMemoryStore implements ChatMemoryStore {
     public List<ChatMessage> getMessages(Object memoryId) {
 
         List<ChatMessage> messages = new ArrayList<>();
-        String sql = "SELECT role, content FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC";
+//        String sql = "SELECT role, content FROM chat_messages WHERE session_id = ? ORDER BY created_at DESC Limit 10";
+
+        String sql = "SELECT role, content FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC ";
 
         try (Connection conn = DriverManager.getConnection(url, username, password);
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -59,6 +62,7 @@ public class MysqlChatMemoryStore implements ChatMemoryStore {
         } catch (SQLException e) {
             throw new RuntimeException("Failed to fetch messages from MySQL", e);
         }
+//        Collections.reverse(messages);
         return messages;
 
     }
@@ -68,41 +72,39 @@ public class MysqlChatMemoryStore implements ChatMemoryStore {
         // 这是一个简化的策略：先删后插。
         // 生产环境为了性能，应该只追加新消息，或者做 Diff。
 
-        String deleteSql = "DELETE FROM chat_messages WHERE session_id = ?";
+        // 只追加最后一条新消息，避免全量覆盖带来的性能问题和数据丢失风险
+        if (messages == null || messages.isEmpty()) {
+            return;
+        }
+
+        ChatMessage lastMessage = messages.get(messages.size() - 1);
+        String role;
+        String content;
+
+        if (lastMessage instanceof UserMessage) {
+            role = "user";
+            content = ((UserMessage) lastMessage).singleText();
+        } else if (lastMessage instanceof AiMessage) {
+            role = "ai";
+            content = ((AiMessage) lastMessage).text();
+        } else if (lastMessage instanceof SystemMessage) {
+            role = "system";
+            content = ((SystemMessage) lastMessage).text();
+        } else {
+            // 忽略不支持的消息类型
+            return;
+        }
+
         String insertSql = "INSERT INTO chat_messages (session_id, role, content, created_at) VALUES (?, ?, ?, NOW())";
 
-        try (Connection conn = DriverManager.getConnection(url, username, password)) {
-            conn.setAutoCommit(false); // 开启事务
+        try (Connection conn = DriverManager.getConnection(url, username, password);
+             PreparedStatement stmt = conn.prepareStatement(insertSql)) {
 
-            // 1. 清除旧数据 (注意：如果有其他依赖此数据的逻辑，慎用全量覆盖)
-            try (PreparedStatement stmt = conn.prepareStatement(deleteSql)) {
-                stmt.setString(1, memoryId.toString());
-                stmt.executeUpdate();
-            }
+            stmt.setString(1, memoryId.toString());
+            stmt.setString(2, role);
+            stmt.setString(3, content);
+            stmt.executeUpdate();
 
-            // 2. 插入当前全量消息列表
-            try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
-                for (ChatMessage msg : messages) {
-                    stmt.setString(1, memoryId.toString());
-
-                    if (msg instanceof UserMessage) {
-                        stmt.setString(2, "user");
-                        stmt.setString(3, ((UserMessage) msg).singleText());
-                    } else if (msg instanceof AiMessage) {
-                        stmt.setString(2, "ai");
-                        stmt.setString(3, ((AiMessage) msg).text());
-                    } else if (msg instanceof SystemMessage) {
-                        stmt.setString(2, "system");
-                        stmt.setString(3, ((SystemMessage) msg).text());
-                    } else {
-                        continue; // 忽略不支持的类型或做特定处理
-                    }
-                    stmt.addBatch();
-                }
-                stmt.executeBatch();
-            }
-
-            conn.commit(); // 提交事务
         } catch (SQLException e) {
             throw new RuntimeException("Failed to update messages in MySQL", e);
         }

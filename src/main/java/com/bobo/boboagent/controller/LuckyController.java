@@ -33,7 +33,7 @@ public class LuckyController {
 
         SseEmitter emitter = new SseEmitter(1000 * 60 * 5L);
 
-        luckyApp.luckyByStream( "dev_test",question).subscribe(
+        luckyApp.luckyByStream( "dev_test2",question).subscribe(
                 data -> {
                         try{
                             emitter.send(SseEmitter.event()
@@ -54,7 +54,7 @@ public class LuckyController {
     public String lucky(@RequestParam String question){
 
 
-        return luckyApp.lucky("dev_test",question);
+        return luckyApp.lucky("dev_test2",question);
     }
 
 
