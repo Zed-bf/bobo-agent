@@ -24,4 +24,5 @@ public class WhoRU {
         return chatLanguageModel.chat(PROMPT);
 
     }
+
 }
