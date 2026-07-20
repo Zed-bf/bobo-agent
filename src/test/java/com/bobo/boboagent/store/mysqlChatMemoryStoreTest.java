@@ -1,9 +1,7 @@
 package com.bobo.boboagent.store;
 
 
-import com.alibaba.dashscope.assistants.Assistant;
 import com.bobo.boboagent.config.MysqlChatMemoryStore;
-import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.openai.OpenAiChatModel;
